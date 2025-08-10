@@ -1,60 +1,98 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Anonymous Crush Submit</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AnonomousCrush</title>
   <style>
-    /* Minimal friendly styling — keep it simple for GitHub Pages */
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#f6f8fa; color:#111; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-    .card{background:#fff;padding:22px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.08); width:360px}
-    input, button { width:100%; padding:10px; margin-top:8px; font-size:15px; border-radius:6px; border:1px solid #ddd; }
-    button{background:#2563eb;color:white;border:0; cursor:pointer}
-    .note{font-size:13px;color:#666;margin-top:8px}
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #ffdde1, #ee9ca7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .form-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    button {
+      background: #ff758c;
+      background: linear-gradient(to right, #ff758c, #ff7eb3);
+      border: none;
+      padding: 0.8rem;
+      width: 100%;
+      color: white;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.1s ease-in-out;
+    }
+    button:hover {
+      transform: scale(1.02);
+    }
+    .message {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h3>Submit a crush</h3>
-
+  <div class="form-container">
+    <h1>💌 AnonomousCrush</h1>
     <form id="crushForm">
-      <input name="email" type="email" id="email" placeholder="Your email (required)" required />
-      <input name="crush_name" id="crush_name" type="text" placeholder="Crush's name (required)" required />
+      <input type="text" name="name" placeholder="Your Name" required />
+      <input type="text" name="crush" placeholder="Your Crush's Name" required />
+      <input type="email" name="email" placeholder="Your Email" required />
       <button type="submit">Submit</button>
     </form>
-
-    <div id="msg" class="note"></div>
+    <div class="message" id="message"></div>
   </div>
 
   <script>
-    const BACKEND_URL = "https://your-backend.onrender.com"; // ← replace with Render URL after deploy
-    const msgEl = document.getElementById('msg');
-    document.getElementById('crushForm').addEventListener('submit', async (e) => {
+    document.getElementById("crushForm").addEventListener("submit", async function(e) {
       e.preventDefault();
-      msgEl.textContent = 'Sending…';
-      const email = document.getElementById('email').value.trim();
-      const crush_name = document.getElementById('crush_name').value.trim();
 
-      try {
-        const res = await fetch(BACKEND_URL + '/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, crush_name })
-        });
+      const form = e.target;
+      const formData = new FormData(form);
 
-        if (res.status === 201) {
-          msgEl.textContent = 'Submitted! Thanks.';
-          e.target.reset();
-        } else if (res.status === 409) {
-          const j = await res.json();
-          msgEl.textContent = j.error || 'You already submitted.';
-        } else {
-          const j = await res.json().catch(()=>({}));
-          msgEl.textContent = j.error || 'Submission failed.';
-        }
-      } catch (err) {
-        msgEl.textContent = 'Network error — try again later.';
-        console.error(err);
+      const response = await fetch("https://YOUR-BACKEND-URL/submit", {
+        method: "POST",
+        body: formData
+      });
+
+      const result = await response.json();
+      const messageEl = document.getElementById("message");
+
+      if (result.error) {
+        messageEl.style.color = "red";
+        messageEl.textContent = result.error;
+      } else {
+        messageEl.style.color = "green";
+        messageEl.textContent = result.match
+          ? "🎉 You have a match! Check your email."
+          : "✅ Submission saved!";
+        form.reset();
       }
     });
   </script>

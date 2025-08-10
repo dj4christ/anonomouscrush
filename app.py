@@ -1,81 +1,115 @@
-import os
-import re
-import base64
-import datetime
 from flask import Flask, request, jsonify
+import os
 import requests
-from flask_cors import CORS
+import base64
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
-# optional: from dotenv import load_dotenv
-# load_dotenv()  # only for local testing; Render will use environment variables
-
+# --- Flask app setup ---
 app = Flask(__name__)
-CORS(app)  # allow cross-origin requests; restrict origin in production if you want
 
-# CONFIG - set these as environment variables on Render
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # DO NOT commit your token
-REPO_OWNER = os.getenv("REPO_OWNER", "YOUR_GITHUB_USERNAME")
-REPO_NAME = os.getenv("REPO_NAME", "YOUR_REPO")
-BRANCH = os.getenv("BRANCH", "main")
-SUBMISSIONS_DIR = os.getenv("SUBMISSIONS_DIR", "submissions")
+# --- GitHub repo details ---
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # Store safely on Render/Railway
+GITHUB_REPO = "dj4christ/anonomouscrush"
+GITHUB_BRANCH = "main"
 
-# simple email validation
-EMAIL_RE = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+# --- Sendinblue Email ---
+EMAIL_API = os.environ.get("EMAIL_API")
 
-def sanitize_email_filename(email: str) -> str:
-    # make a safe filename based on email (replace non-alnum with _)
-    safe = re.sub(r'[^A-Za-z0-9]+', '_', email)
-    return safe.strip('_').lower() + ".txt"
+def send_email(email, name, subject, message):
+    if not EMAIL_API:
+        raise ValueError("EMAIL_API not set")
+
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = EMAIL_API
+
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+    send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+        to=[{"email": email, "name": name}],
+        sender={"email": "dj4christ09@gmail.com", "name": "AnonomousCrush"},
+        subject=subject,
+        html_content=f"<html><body><p>{message}</p></body></html>"
+    )
+
+    try:
+        api_instance.send_transac_email(send_smtp_email)
+    except ApiException as e:
+        print("Error sending email:", e)
+
+
+# --- GitHub helper functions ---
+def github_get_file(path):
+    """Fetch a file from GitHub"""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}?ref={GITHUB_BRANCH}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        return r.json()
+    return None
+
+def github_write_file(path, content, message):
+    """Write a file to GitHub"""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode()).decode(),
+        "branch": GITHUB_BRANCH
+    }
+    r = requests.put(url, headers=headers, json=data)
+    return r.status_code in (200, 201)
+
 
 @app.route("/submit", methods=["POST"])
 def submit():
-    if not GITHUB_TOKEN:
-        return jsonify({"error": "Server not configured"}), 500
+    user_name = request.form.get("name")
+    crush_name = request.form.get("crush")
+    email = request.form.get("email")
 
-    data = request.get_json(force=True) or {}
-    email = (data.get("email") or "").strip()
-    crush_name = (data.get("crush_name") or "").strip()
+    if not all([user_name, crush_name, email]):
+        return jsonify({"error": "Missing fields"}), 400
 
-    if not email or not crush_name:
-        return jsonify({"error": "Missing email or crush_name"}), 400
-    if not EMAIL_RE.match(email):
-        return jsonify({"error": "Invalid email format"}), 400
+    # Path for this user's crush submission
+    filename = f"data/{email.replace('@','_at_')}.txt"
 
-    filename = sanitize_email_filename(email)
-    path = f"{SUBMISSIONS_DIR}/{filename}"
+    # Check if already submitted
+    existing_file = github_get_file(filename)
+    if existing_file:
+        return jsonify({"error": "You have already submitted"}), 400
 
-    # 1) Check if file exists
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
-    r = requests.get(url, headers=headers)
-    if r.status_code == 200:
-        return jsonify({"error": "Email already submitted"}), 409
-    elif r.status_code not in (404, 200):
-        # other errors (rate limit, auth)
-        try:
-            return jsonify({"error": "GitHub check failed", "details": r.json()}), 502
-        except Exception:
-            return jsonify({"error": "GitHub check failed", "status": r.status_code}), 502
+    # Save submission
+    content = f"Name: {user_name}\nCrush: {crush_name}\nEmail: {email}"
+    github_write_file(filename, content, f"Add crush for {email}")
 
-    # 2) Prepare content
-    timestamp = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-    content_text = f"Crush Name: {crush_name}\nSubmitted By: {email}\nTimestamp (UTC): {timestamp}\n"
-    b64content = base64.b64encode(content_text.encode()).decode()
+    # --- Check for match ---
+    # Iterate over existing submissions
+    match_found = False
+    match_email = None
+    match_name = None
 
-    payload = {
-        "message": f"Add crush submission for {email}",
-        "content": b64content,
-        "branch": BRANCH
-    }
+    submissions_dir = github_get_file("data")
+    if submissions_dir and isinstance(submissions_dir, list):
+        for f in submissions_dir:
+            if f["type"] == "file":
+                file_data = requests.get(f["download_url"]).text
+                if f"Name: {crush_name}" in file_data and f"Crush: {user_name}" in file_data:
+                    # MATCH!
+                    match_found = True
+                    for line in file_data.splitlines():
+                        if line.startswith("Email:"):
+                            match_email = line.split("Email:")[1].strip()
+                        if line.startswith("Name:"):
+                            match_name = line.split("Name:")[1].strip()
+                    break
 
-    put_r = requests.put(url, headers=headers, json=payload)
-    if put_r.status_code in (200, 201):
-        return jsonify({"success": True}), 201
-    else:
-        try:
-            return jsonify({"error": "Failed to write to GitHub", "details": put_r.json()}), 502
-        except Exception:
-            return jsonify({"error": "Failed to write to GitHub", "status": put_r.status_code}), 502
+    # If match, send emails to both
+    if match_found and match_email:
+        send_email(email, user_name, "You have a match!", f"You matched with {crush_name}!")
+        send_email(match_email, match_name, "You have a match!", f"You matched with {user_name}!")
+
+    return jsonify({"message": "Submission saved", "match": match_found})
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(debug=True)
