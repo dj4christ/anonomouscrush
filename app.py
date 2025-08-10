@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, CORS
 import os
 import requests
 import base64
@@ -7,6 +7,8 @@ from sib_api_v3_sdk.rest import ApiException
 
 # --- Flask app setup ---
 app = Flask(__name__)
+
+CORS(app)  # This allows all origins — simple and effective for now
 
 # --- GitHub repo details ---
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # Store safely on Render/Railway
