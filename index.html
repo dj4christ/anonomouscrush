@@ -1,31 +1,62 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <title>Anonymous Crush</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Anonymous Crush Submit</title>
+  <style>
+    /* Minimal friendly styling — keep it simple for GitHub Pages */
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#f6f8fa; color:#111; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+    .card{background:#fff;padding:22px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.08); width:360px}
+    input, button { width:100%; padding:10px; margin-top:8px; font-size:15px; border-radius:6px; border:1px solid #ddd; }
+    button{background:#2563eb;color:white;border:0; cursor:pointer}
+    .note{font-size:13px;color:#666;margin-top:8px}
+  </style>
 </head>
 <body>
-    <h2>Submit Your Crush</h2>
+  <div class="card">
+    <h3>Submit a crush</h3>
+
     <form id="crushForm">
-        <input type="email" name="email" placeholder="Your email" required><br>
-        <input type="text" name="crush_name" placeholder="Crush's name" required><br>
-        <button type="submit">Submit</button>
+      <input name="email" type="email" id="email" placeholder="Your email (required)" required />
+      <input name="crush_name" id="crush_name" type="text" placeholder="Crush's name (required)" required />
+      <button type="submit">Submit</button>
     </form>
 
-    <script>
-        document.getElementById("crushForm").addEventListener("submit", async function(e) {
-            e.preventDefault();
-            const email = this.email.value;
-            const crush_name = this.crush_name.value;
+    <div id="msg" class="note"></div>
+  </div>
 
-            const res = await fetch("http://localhost:5000/submit", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, crush_name })
-            });
+  <script>
+    const BACKEND_URL = "https://your-backend.onrender.com"; // ← replace with Render URL after deploy
+    const msgEl = document.getElementById('msg');
+    document.getElementById('crushForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msgEl.textContent = 'Sending…';
+      const email = document.getElementById('email').value.trim();
+      const crush_name = document.getElementById('crush_name').value.trim();
 
-            const data = await res.json();
-            alert(JSON.stringify(data));
+      try {
+        const res = await fetch(BACKEND_URL + '/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, crush_name })
         });
-    </script>
+
+        if (res.status === 201) {
+          msgEl.textContent = 'Submitted! Thanks.';
+          e.target.reset();
+        } else if (res.status === 409) {
+          const j = await res.json();
+          msgEl.textContent = j.error || 'You already submitted.';
+        } else {
+          const j = await res.json().catch(()=>({}));
+          msgEl.textContent = j.error || 'Submission failed.';
+        }
+      } catch (err) {
+        msgEl.textContent = 'Network error — try again later.';
+        console.error(err);
+      }
+    });
+  </script>
 </body>
 </html>
