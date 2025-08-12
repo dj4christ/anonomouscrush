@@ -70,7 +70,7 @@ def submit():
     if not all([user_name, crush_name, email]):
         return jsonify({"error": "Missing fields"}), 400
 
-    filename = f"data/{email.replace('@','_at_')}.txt"
+    filename = f"submissions/{email.replace('@','_at_')}.txt"
 
     existing_file = github_get_file(filename)
     if existing_file:
