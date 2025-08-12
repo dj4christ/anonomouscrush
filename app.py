@@ -63,6 +63,7 @@ def github_write_file(path, content, message):
 @app.route("/submit", methods=["POST"])
 def submit():
     user_name = request.form.get("name")
+    print(user_name)
     crush_name = request.form.get("crush")
     email = request.form.get("email")
 
