@@ -6,17 +6,14 @@ import base64
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
-# --- Flask app setup ---
 app = Flask(__name__)
 
-CORS(app)  # This allows all origins — simple and effective for now
+CORS(app)
 
-# --- GitHub repo details ---
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # Store safely on Render/Railway
 GITHUB_REPO = "dj4christ/anonomouscrush"
 GITHUB_BRANCH = "main"
 
-# --- Sendinblue Email ---
 EMAIL_API = os.environ.get("EMAIL_API")
 
 def send_email(email, name, subject, message):
@@ -41,7 +38,6 @@ def send_email(email, name, subject, message):
         print("Error sending email:", e)
 
 
-# --- GitHub helper functions ---
 def github_get_file(path):
     """Fetch a file from GitHub"""
     url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}?ref={GITHUB_BRANCH}"
@@ -73,20 +69,15 @@ def submit():
     if not all([user_name, crush_name, email]):
         return jsonify({"error": "Missing fields"}), 400
 
-    # Path for this user's crush submission
     filename = f"data/{email.replace('@','_at_')}.txt"
 
-    # Check if already submitted
     existing_file = github_get_file(filename)
     if existing_file:
         return jsonify({"error": "You have already submitted"}), 400
 
-    # Save submission
     content = f"Name: {user_name}\nCrush: {crush_name}\nEmail: {email}"
     github_write_file(filename, content, f"Add crush for {email}")
 
-    # --- Check for match ---
-    # Iterate over existing submissions
     match_found = False
     match_email = None
     match_name = None
@@ -97,7 +88,6 @@ def submit():
             if f["type"] == "file":
                 file_data = requests.get(f["download_url"]).text
                 if f"Name: {crush_name}" in file_data and f"Crush: {user_name}" in file_data:
-                    # MATCH!
                     match_found = True
                     for line in file_data.splitlines():
                         if line.startswith("Email:"):
@@ -106,7 +96,6 @@ def submit():
                             match_name = line.split("Name:")[1].strip()
                     break
 
-    # If match, send emails to both
     if match_found and match_email:
         send_email(email, user_name, "You have a match!", f"You matched with {crush_name}!")
         send_email(match_email, match_name, "You have a match!", f"You matched with {user_name}!")
