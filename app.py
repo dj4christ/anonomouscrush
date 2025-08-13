@@ -63,9 +63,9 @@ def github_write_file(path, content, message):
 @app.route("/submit", methods=["POST"])
 def submit():
     user_name = request.form.get("name")
-    print(user_name)
     crush_name = request.form.get("crush")
     email = request.form.get("email")
+    print(user_name, crush_name, email, GITHUB_BRANCH, GITHUB_REPO, GITHUB_TOKEN)
 
     if not all([user_name, crush_name, email]):
         return jsonify({"error": "Missing fields"}), 400
