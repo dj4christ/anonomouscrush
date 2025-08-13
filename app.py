@@ -62,9 +62,9 @@ def github_write_file(path, content, message):
 
 @app.route("/submit", methods=["POST"])
 def submit():
-    user_name = request.form.get("name")
-    crush_name = request.form.get("crush")
-    email = request.form.get("email")
+    user_name = request.form.get("name").lower()
+    crush_name = request.form.get("crush").lower()
+    email = request.form.get("email").lower()
     print(user_name, crush_name, email, GITHUB_BRANCH, GITHUB_REPO, GITHUB_TOKEN)
 
     if not all([user_name, crush_name, email]):
