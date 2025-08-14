@@ -27,7 +27,7 @@ def send_email(email, name, subject, message):
 
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": email, "name": name}],
-        sender={"email": "anonymouscrush@gmail.com", "name": "AnonomousCrush"},
+        sender={"email": "anonymouscrushsite@gmail.com", "name": "AnonomousCrush"},
         subject=subject,
         html_content=f"<html><body><p>{message}</p></body></html>"
     )
