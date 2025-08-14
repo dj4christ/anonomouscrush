@@ -27,7 +27,7 @@ def send_email(email, name, subject, message):
 
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": email, "name": name}],
-        sender={"email": "dj4christ09@gmail.com", "name": "AnonomousCrush"},
+        sender={"email": "anonymouscrush@gmail.com", "name": "AnonomousCrush"},
         subject=subject,
         html_content=f"<html><body><p>{message}</p></body></html>"
     )
@@ -56,8 +56,14 @@ def github_write_file(path, content, message):
         "content": base64.b64encode(content.encode()).decode(),
         "branch": GITHUB_BRANCH
     }
-    r = requests.put(url, headers=headers, json=data)
-    return r.status_code in (200, 201)
+    requests.put(url, headers=headers, json=data)
+
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode()).decode(),
+        "branch": GITHUB_BRANCH
+    }
+    requests.put(url, headers=headers, json=data)
 
 
 @app.route("/submit", methods=["POST"])
@@ -83,7 +89,7 @@ def submit():
     match_email = None
     match_name = None
 
-    submissions_dir = github_get_file("data")
+    submissions_dir = github_get_file("submissions")
     if submissions_dir and isinstance(submissions_dir, list):
         for f in submissions_dir:
             if f["type"] == "file":
